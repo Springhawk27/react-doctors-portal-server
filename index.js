@@ -25,6 +25,7 @@ async function run() {
         // console.log('database connceted successfully')
         const database = client.db('doctors_portal');
         const appointmentCollection = database.collection('appointments');
+        const userCollection = database.collection('users');
 
         app.get('/appointments', async (req, res) => {
             const email = req.query.email;
@@ -40,13 +41,38 @@ async function run() {
             const appointments = await cursor.toArray();
             res.json(appointments);
         })
+        app.get('/users', async (req, res) => {
+
+            const cursor = userCollection.find({});
+            const users = await cursor.toArray();
+            res.json(users);
+        })
 
         app.post('/appointments', async (req, res) => {
             const appointment = req.body;
             const result = await appointmentCollection.insertOne(appointment);
-            console.log(appointment);
+            // console.log(appointment);
+            // console.log(result);
+            res.json(result)
+        });
+        app.post('/users', async (req, res) => {
+            const user = req.body;
+            const result = await userCollection.insertOne(user);
+            console.log(user);
             console.log(result);
             res.json(result)
+        });
+
+        app.put('/users', async (req, res) => {
+            const user = req.body;
+            const filter = { email: user.email };
+            const options = { upsert: true };
+            const updateDoc = {
+                $set: user
+            };
+            const result = await userCollection.updateOne(filter, updateDoc, options);
+            res.json(result);
+
         })
 
         // // all user

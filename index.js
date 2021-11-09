@@ -4,9 +4,22 @@ const cors = require('cors');
 require('dotenv').config()
 const { MongoClient } = require('mongodb');
 
+// new
+const admin = require("firebase-admin");
+
+
 
 
 const port = process.env.PORT || 5000;
+
+// doctors-portal-firebase-adminsdk.json 
+
+
+const serviceAccount = require('./doctors-portal-firebase-adminsdk.json ');
+
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+});
 
 // middleware 
 app.use(cors());
@@ -18,6 +31,14 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 
 
 // console.log(uri);
+
+
+async function verifyToken(req, res, next) {
+    if (req.headers?.authorization.startsWith('Bearer ')) {
+        const token = req.headers.authorization.split(' ')[1];
+    }
+    next();
+}
 
 async function run() {
     try {
@@ -46,6 +67,17 @@ async function run() {
             const cursor = userCollection.find({});
             const users = await cursor.toArray();
             res.json(users);
+        });
+
+        app.get('/users/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email };
+            const user = await userCollection.findOne(query);
+            let isAdmin = false;
+            if (user?.role === 'admin') {
+                isAdmin = true;
+            }
+            res.json({ admin: isAdmin });
         })
 
         app.post('/appointments', async (req, res) => {
@@ -75,9 +107,10 @@ async function run() {
 
         });
 
-        app.put('/users/admin', async (req, res) => {
+        app.put('/users/admin', verifyToken, async (req, res) => {
             const user = req.body;
-            console.log('put', user);
+            // console.log('put', user);
+            console.log('put', req.headers.authorization);
             const filter = { email: user.email };
             const updateDoc = {
                 $set: { role: 'admin' }

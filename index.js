@@ -1,11 +1,13 @@
 const express = require('express')
 const app = express();
 const cors = require('cors');
+const admin = require("firebase-admin");
+
 require('dotenv').config()
+
 const { MongoClient } = require('mongodb');
 
 // new
-const admin = require("firebase-admin");
 
 
 
@@ -15,7 +17,7 @@ const port = process.env.PORT || 5000;
 // doctors-portal-firebase-adminsdk.json 
 
 
-const serviceAccount = require('./doctors-portal-firebase-adminsdk.json ');
+const serviceAccount = require('./doctors-portal-firebase-adminsdk.json');
 
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
@@ -34,8 +36,17 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 
 
 async function verifyToken(req, res, next) {
-    if (req.headers?.authorization.startsWith('Bearer ')) {
+    if (req.headers?.authorization?.startsWith('Bearer ')) {
         const token = req.headers.authorization.split(' ')[1];
+
+        try {
+            const decodedUser = await admin.auth().verifyIdToken(token);
+            req.decodedEmail = decodedUser.email;
+            // console.log(req.decodedEmail)
+        }
+        catch {
+
+        }
     }
     next();
 }
@@ -48,16 +59,16 @@ async function run() {
         const appointmentCollection = database.collection('appointments');
         const userCollection = database.collection('users');
 
-        app.get('/appointments', async (req, res) => {
+        app.get('/appointments', verifyToken, async (req, res) => {
             const email = req.query.email;
             // const date = req.query.date.toLocaleDateString();
             const date = new Date(req.query.date).toDateString();
             // const query = { email: email };
             const query = { email: email, date: date };
 
-            console.log(date)
+            // console.log(date)
 
-            console.log(query)
+            // console.log(query)
             const cursor = appointmentCollection.find(query);
             const appointments = await cursor.toArray();
             res.json(appointments);
@@ -110,13 +121,32 @@ async function run() {
         app.put('/users/admin', verifyToken, async (req, res) => {
             const user = req.body;
             // console.log('put', user);
-            console.log('put', req.headers.authorization);
-            const filter = { email: user.email };
-            const updateDoc = {
-                $set: { role: 'admin' }
-            };
-            const result = await userCollection.updateOne(filter, updateDoc);
-            res.json(result);
+            // console.log('put', req.headers);
+            // console.log('put', req.headers.authorization);
+            const requester = req.decodedEmail;
+
+            if (requester) {
+                const requesterAccount = await userCollection.findOne({ email: requester })
+                if (requesterAccount.role === 'admin') {
+                    const filter = { email: user.email };
+                    const updateDoc = {
+                        $set: { role: 'admin' }
+                    };
+                    const result = await userCollection.updateOne(filter, updateDoc);
+                    res.json(result);
+                }
+
+            }
+            else {
+                res.status(401).json({ message: 'You do not have access to make admin' })
+            }
+
+            // const filter = { email: user.email };
+            // const updateDoc = {
+            //     $set: { role: 'admin' }
+            // };
+            // const result = await userCollection.updateOne(filter, updateDoc);
+            // res.json(result);
         })
 
         // // all user

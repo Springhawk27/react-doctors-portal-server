@@ -7,7 +7,12 @@ require('dotenv').config()
 
 const { MongoClient } = require('mongodb');
 
+const ObjectId = require('mongodb').ObjectId;
+
 // new
+// This is a sample test API key.
+const stripe = require("stripe")(process.env.STRIPE_SECRET);
+
 
 
 
@@ -64,6 +69,7 @@ async function run() {
             const email = req.query.email;
             // const date = req.query.date.toLocaleDateString();
             const date = new Date(req.query.date).toDateString();
+            // const date = req.query.date 
             // const query = { email: email };
             const query = { email: email, date: date };
 
@@ -90,6 +96,13 @@ async function run() {
                 isAdmin = true;
             }
             res.json({ admin: isAdmin });
+        });
+
+        app.get('/appointments/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) };
+            const result = await appointmentCollection.findOne(query);
+            res.json(result);
         })
 
         app.post('/appointments', async (req, res) => {
@@ -99,6 +112,22 @@ async function run() {
             // console.log(result);
             res.json(result)
         });
+
+
+        // update appointment
+        app.put('/appointments/:id', async (req, res) => {
+            const id = req.params.id;
+            const payment = req.body;
+            const filter = { _id: ObjectId(id) };
+            const updateDoc = {
+                $set: {
+                    payment: payment
+                }
+            };
+            const result = await appointmentCollection.updateOne(filter, updateDoc);
+            res.json(result);
+        })
+
         app.post('/users', async (req, res) => {
             const user = req.body;
             const result = await userCollection.insertOne(user);
@@ -148,6 +177,19 @@ async function run() {
             // };
             // const result = await userCollection.updateOne(filter, updateDoc);
             // res.json(result);
+        });
+
+
+        // stripe post method
+        app.post("/create-payment-intent", async (req, res) => {
+            const paymentInfo = req.body;
+            const amount = paymentInfo.price * 100;
+            const paymentIntent = await stripe.paymentIntents.create({
+                currency: 'usd',
+                amount: amount,
+                payment_method_types: ['card'],
+            });
+            res.json({ clientSecret: paymentIntent.client_secret })
         })
 
         // // all user

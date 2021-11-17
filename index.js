@@ -14,6 +14,11 @@ const ObjectId = require('mongodb').ObjectId;
 const stripe = require("stripe")(process.env.STRIPE_SECRET);
 
 
+//new 
+const fileUpload = require('express-fileupload');
+
+
+
 
 
 
@@ -32,6 +37,9 @@ admin.initializeApp({
 // middleware 
 app.use(cors());
 app.use(express.json());
+//new 
+app.use(fileUpload());
+
 
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.42wwv.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
@@ -64,6 +72,7 @@ async function run() {
         const database = client.db('doctors_portal');
         const appointmentCollection = database.collection('appointments');
         const userCollection = database.collection('users');
+        const doctorCollection = database.collection('doctors');
 
         app.get('/appointments', verifyToken, async (req, res) => {
             const email = req.query.email;
@@ -80,6 +89,38 @@ async function run() {
             const appointments = await cursor.toArray();
             res.json(appointments);
         })
+
+        // doctor get api
+        app.get('/doctors', async (req, res) => {
+            const cursor = doctorCollection.find({});
+            const doctors = await cursor.toArray();
+            res.json(doctors);
+
+        })
+
+        // doctor post api
+        app.post('/doctors', async (req, res) => {
+            // console.log(('body', req.body));
+            // new
+            const name = req.body.name;
+            const email = req.body.email;
+            const pic = req.files.image
+            const picData = pic.data;
+            const encodedPic = picData.toString('base64');
+            const imageBuffer = Buffer.from(encodedPic, 'base64');
+            const doctor = {
+                name,
+                email,
+                image: imageBuffer
+            }
+
+            const result = await doctorCollection.insertOne(doctor);
+
+            // console.log(('files', req.files));
+            // res.json({ success: true });
+            res.json(result);
+        })
+
         app.get('/users', async (req, res) => {
 
             const cursor = userCollection.find({});
